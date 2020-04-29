@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const encrypt = require('mongoose-encryption');
 
 const app = express();
 
@@ -15,15 +14,10 @@ mongoose
   .then(console.log('Connected to databse succesfull.'))
   .catch((error) => console.error(error));
 
-const userSchema = new mongoose.Schema({
+const userSchema = {
   email: String,
   password: String,
-});
-
-userSchema.plugin(encrypt, {
-  secret: process.env.SECRET,
-  encryptedFields: ['password'],
-});
+};
 
 const User = mongoose.model('User', userSchema);
 
@@ -40,28 +34,17 @@ app.get('/register', function (req, res) {
 });
 
 app.post('/register', function (req, res) {
-  User.create(
-    { email: req.body.username, password: req.body.password },
-    function (err, newUser) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log(newUser);
-        res.render('secrets');
-      }
+  const newUser = new User({
+    email: req.body.username,
+    password: req.body.password,
+  });
+  newUser.save(function (err) {
+    if (err) {
+      console.log(err);
+    } else {
+      res.render('secrets');
     }
-  );
-  // const newUser = new User({
-  //   email: req.body.username,
-  //   password: req.body.password,
-  // });
-  // newUser.save(function (err) {
-  //   if (err) {
-  //     console.log(err);
-  //   } else {
-  //     res.render('secrets');
-  //   }
-  // });
+  });
 });
 
 app.post('/login', function (req, res) {
