@@ -1,0 +1,9 @@
+{
+  "editor.tabSize": 2,
+  "editor.fontSize": 16,
+  "terminal.integrated.fontSize": 16,
+  "editor.wordWrap": "on",
+  "editor.formatOnSave": true,
+  "prettier.jsxSingleQuote": true,
+  "prettier.singleQuote": true
+}
