@@ -1,32 +1,61 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const md5 = require('md5');
+const session = require('express-session');
+const passport = require('passport');
+const passportLocalMongoose = require('passport-local-mongoose');
 
 const app = express();
-
+// INITIALISE THE APP
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-const url = process.env.DB_URI;
+// SETUP EXPRESS-SESSION
+app.use(
+  session({
+    secret: 'toGodbetheglory',
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// SETUP EXPRESS TO INITIALISE PASSPORT AND MANAGE SESSION
+app.use(passport.initialize());
+app.use(passport.session());
+
+// SETUP MONGOOSE DATABASE
 mongoose
-  .connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(process.env.DB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(console.log('Connected to databse succesfull.'))
   .catch((error) => console.error(error));
 
+// SET THE MONGOOSE OPTIONS
+mongoose.set('useCreateIndex', true);
+
+// SETUP USERSCHEMA MONGOOSE SCHEMA
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
 });
 
-userSchema.plugin(encrypt, {
-  secret: process.env.SECRET,
-  encryptedFields: ['password'],
-});
+// PLUGIN PASSPORT-LOCAL MONGOOSE TO USER-SCHEMA
+userSchema.plugin(passportLocalMongoose);
 
+// SETUP THE USER MODEL WITH SCHEMA
 const User = mongoose.model('User', userSchema);
 
+// SETUP LOCALSTRATEGY AND SERIALIZE-USER/DESERIALIZE-USER FUNCTIONS
+// CHANGE: USE "createStrategy" INSTEAD OF "authenticate"
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+// SETUP ALL THE ROUTES
 app.get('/', function (req, res) {
   res.render('home');
 });
@@ -39,33 +68,48 @@ app.get('/register', function (req, res) {
   res.render('register');
 });
 
+app.get('/secrets', function (req, res) {
+  if (req.isAuthenticated()) {
+    res.render('secrets');
+  } else {
+    res.redirect('/login');
+  }
+});
+
+app.get('/logout', function (req, res) {
+  req.logout();
+  res.redirect('/');
+});
+
 app.post('/register', function (req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password),
-  });
-  newUser.save(function (err) {
+  User.register({ username: req.body.username }, req.body.password, function (
+    err,
+    user
+  ) {
     if (err) {
       console.log(err);
+      res.redirect('/register');
     } else {
-      res.render('secrets');
+      passport.authenticate('local')(req, res, function () {
+        res.redirect('/secrets');
+      });
     }
   });
 });
 
 app.post('/login', function (req, res) {
-  const username = req.body.username;
-  const password = md5(req.body.password);
+  const user = new User({
+    username: req.body.username,
+    password: req.body.password,
+  });
 
-  User.findOne({ email: username }, function (err, foundUser) {
+  req.login(user, function (err) {
     if (err) {
-      console.error(err);
+      console.log(err);
     } else {
-      if (foundUser) {
-        if (foundUser.password === password) {
-          res.render('secrets');
-        }
-      }
+      passport.authenticate('local')(req, res, function () {
+        res.redirect('/secrets');
+      });
     }
   });
 });
