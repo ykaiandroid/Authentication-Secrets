@@ -1,28 +1,60 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const saltRounds = 10;
+const session = require('express-session');
+const passport = require('passport');
+const passportLocalMongoose = require('passport-local-mongoose');
 
 const app = express();
 
+// INITIALISE THE APP
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+// SETUP EXPRESS TO USE EXPRESS-SESSION
+app.use(
+  session({
+    secret: process.env.SECRET,
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// SETUP EXPRESS TO INITIALISE PASSPORT AND MANAGE SESSION
+app.use(passport.initialize());
+app.use(passport.session());
+
+// SETUP MONGOOSE DATABASE
 const url = process.env.DB_URI;
 mongoose
   .connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(console.log('Connected to databse succesfull.'))
   .catch((error) => console.error(error));
 
+// SET THE MONGOOSE OPTIONS
+mongoose.set('useCreateIndex', true);
+
+// SETUP USERSCHEMA MONGOOSE SCHEMA
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
 });
 
+// SET THE PLUGIN FOR USER-SCHEMA AND USE THE PASSPORT-LOCAL-MONGOOSE
+userSchema.plugin(passportLocalMongoose);
+
+// SETUP THE USER MODEL WITH MONGOOSE SCHEMA
 const User = mongoose.model('User', userSchema);
 
+// SETUP LOCALSTRATEGY AND SERIALIZE-USER/DESERIALIZE-USER FUNCTIONS
+// CHANGE: USE "createStrategy" INSTEAD OF "authenticate"
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+// SETUP ALL THE ROUTES
 app.get('/', function (req, res) {
   res.render('home');
 });
@@ -35,39 +67,52 @@ app.get('/register', function (req, res) {
   res.render('register');
 });
 
+app.get('/secrets', function (req, res) {
+  if (req.isAuthenticated()) {
+    res.render('secrets');
+  } else {
+    res.redirect('/login');
+  }
+});
+
+app.get('/logout', function (req, res) {
+  req.logout();
+  res.redirect('/');
+});
+
 app.post('/register', function (req, res) {
-  bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-    // Store hash in your password DB.
-    const newUser = new User({
-      email: req.body.username,
-      password: hash,
-    });
-    newUser.save(function (err) {
-      if (err) {
-        console.log(err);
-      } else {
-        res.render('secrets');
-      }
-    });
+  User.register({ username: req.body.username }, req.body.password, function (
+    err,
+    user
+  ) {
+    if (err) {
+      console.log(err);
+      res.redirect('/register');
+    } else {
+      passport.authenticate('local')(req, res, function () {
+        res.redirect('/secrets');
+      });
+    }
   });
 });
 
 app.post('/login', function (req, res) {
-  const username = req.body.username;
-  const password = req.body.password;
+  const user = new User({
+    username: req.body.username,
+    password: req.body.password,
+  });
 
-  User.findOne({ email: username }, function (err, foundUser) {
+  req.login(user, function (err) {
     if (err) {
-      console.error(err);
+      console.log(err);
     } else {
-      if (foundUser) {
-        bcrypt.compare(password, foundUser.password, function (err, result) {
-          // result == true
-          if (result === true) {
-            res.render('secrets');
-          }
-        });
-      }
+      passport.authenticate('local', { failureRedirect: 'back' })(
+        req,
+        res,
+        function () {
+          res.redirect('/secrets');
+        }
+      );
     }
   });
 });
