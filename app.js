@@ -6,15 +6,26 @@ const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
 
 const app = express();
+<<<<<<< HEAD
+=======
+
+>>>>>>> temp
 // INITIALISE THE APP
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+<<<<<<< HEAD
 // SETUP EXPRESS-SESSION
 app.use(
   session({
     secret: 'toGodbetheglory',
+=======
+// SETUP EXPRESS TO USE EXPRESS-SESSION
+app.use(
+  session({
+    secret: process.env.SECRET,
+>>>>>>> temp
     resave: false,
     saveUninitialized: false,
   })
@@ -25,6 +36,10 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // SETUP MONGOOSE DATABASE
+<<<<<<< HEAD
+=======
+const url = process.env.DB_URI;
+>>>>>>> temp
 mongoose
   .connect(process.env.DB_URI, {
     useNewUrlParser: true,
@@ -42,10 +57,17 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
+<<<<<<< HEAD
 // PLUGIN PASSPORT-LOCAL MONGOOSE TO USER-SCHEMA
 userSchema.plugin(passportLocalMongoose);
 
 // SETUP THE USER MODEL WITH SCHEMA
+=======
+// SET THE PLUGIN FOR USER-SCHEMA AND USE THE PASSPORT-LOCAL-MONGOOSE
+userSchema.plugin(passportLocalMongoose);
+
+// SETUP THE USER MODEL WITH MONGOOSE SCHEMA
+>>>>>>> temp
 const User = mongoose.model('User', userSchema);
 
 // SETUP LOCALSTRATEGY AND SERIALIZE-USER/DESERIALIZE-USER FUNCTIONS
@@ -107,9 +129,19 @@ app.post('/login', function (req, res) {
     if (err) {
       console.log(err);
     } else {
+<<<<<<< HEAD
       passport.authenticate('local')(req, res, function () {
         res.redirect('/secrets');
       });
+=======
+      passport.authenticate('local', { failureRedirect: 'back' })(
+        req,
+        res,
+        function () {
+          res.redirect('/secrets');
+        }
+      );
+>>>>>>> temp
     }
   });
 });
