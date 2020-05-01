@@ -4,28 +4,20 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
-<<<<<<< HEAD
-=======
 
->>>>>>> temp
 // INITIALISE THE APP
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-<<<<<<< HEAD
-// SETUP EXPRESS-SESSION
-app.use(
-  session({
-    secret: 'toGodbetheglory',
-=======
 // SETUP EXPRESS TO USE EXPRESS-SESSION
 app.use(
   session({
     secret: process.env.SECRET,
->>>>>>> temp
     resave: false,
     saveUninitialized: false,
   })
@@ -36,12 +28,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // SETUP MONGOOSE DATABASE
-<<<<<<< HEAD
-=======
 const url = process.env.DB_URI;
->>>>>>> temp
 mongoose
-  .connect(process.env.DB_URI, {
+  .connect(url, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -55,32 +44,67 @@ mongoose.set('useCreateIndex', true);
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
+  googleId: String,
 });
 
-<<<<<<< HEAD
-// PLUGIN PASSPORT-LOCAL MONGOOSE TO USER-SCHEMA
-userSchema.plugin(passportLocalMongoose);
-
-// SETUP THE USER MODEL WITH SCHEMA
-=======
 // SET THE PLUGIN FOR USER-SCHEMA AND USE THE PASSPORT-LOCAL-MONGOOSE
+// SET THE PLUGIN FOR USER-SCHEMA AND USE THE FINDORCREATE
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 // SETUP THE USER MODEL WITH MONGOOSE SCHEMA
->>>>>>> temp
 const User = mongoose.model('User', userSchema);
 
 // SETUP LOCALSTRATEGY AND SERIALIZE-USER/DESERIALIZE-USER FUNCTIONS
 // CHANGE: USE "createStrategy" INSTEAD OF "authenticate"
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// PASSPORT DEFAULT CONFIGURATION FOR SERIALIZE AND DESERIALIZE USER FUNCTIONS
+passport.serializeUser(function (user, done) {
+  done(null, user.id);
+});
+
+passport.deserializeUser(function (id, done) {
+  User.findById(id, function (err, user) {
+    done(err, user);
+  });
+});
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      callbackURL: 'http://localhost:3000/auth/google/secrets',
+      userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo',
+    },
+    function (accessToken, refreshToken, profile, cb) {
+      console.log(profile);
+      User.findOrCreate({ googleId: profile.id }, function (err, user) {
+        return cb(err, user);
+      });
+    }
+  )
+);
 
 // SETUP ALL THE ROUTES
 app.get('/', function (req, res) {
   res.render('home');
 });
+
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile'] })
+);
+
+app.get(
+  '/auth/google/secrets',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function (req, res) {
+    // Successful authentication, redirect secrets.
+    res.redirect('/secrets');
+  }
+);
 
 app.get('/login', function (req, res) {
   res.render('login');
@@ -129,11 +153,6 @@ app.post('/login', function (req, res) {
     if (err) {
       console.log(err);
     } else {
-<<<<<<< HEAD
-      passport.authenticate('local')(req, res, function () {
-        res.redirect('/secrets');
-      });
-=======
       passport.authenticate('local', { failureRedirect: 'back' })(
         req,
         res,
@@ -141,7 +160,6 @@ app.post('/login', function (req, res) {
           res.redirect('/secrets');
         }
       );
->>>>>>> temp
     }
   });
 });
